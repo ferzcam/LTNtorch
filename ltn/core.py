@@ -555,6 +555,7 @@ class Predicate(nn.Module):
             to be used only for simple predicates.
         """
         super(Predicate, self).__init__()
+
         if model is not None and func is not None:
             raise ValueError("Both model and func parameters have been specified. Expected only one of "
                              "the two parameters to be specified.")
@@ -577,7 +578,7 @@ class Predicate(nn.Module):
     def __repr__(self):
         return "Predicate(model=" + str(self.model) + ")"
 
-    def forward(self, *inputs, **kwargs):
+    def forward(self, *inputs, return_as_tensor = False, **kwargs, ):
         """
         It computes the output of the predicate given some :ref:`LTN objects <noteltnobject>` in input.
 
@@ -602,6 +603,7 @@ class Predicate(nn.Module):
         :class:`ValueError`
             Raises when the values of the output are not in the range [0., 1.].
         """
+
         inputs = list(inputs)
         if not all(isinstance(x, LTNObject) for x in inputs):
             raise TypeError("Expected parameter 'inputs' to be a tuple of LTNObject, but got " + str([type(i)
@@ -613,17 +615,27 @@ class Predicate(nn.Module):
         output = self.model(*[o.value for o in proc_objs], **kwargs)
 
         # check if output of predicate contains only truth values, namely values in the range [0., 1.]
-        if not torch.all(torch.where(torch.logical_and(output >= 0., output <= 1.), 1., 0.)):
-            raise ValueError("Expected the output of a predicate to be in the range [0., 1.], but got some values "
-                             "outside of this range. Check your predicate implementation!")
-
         output = torch.reshape(output, tuple(output_shape))
         # we assure the output is float in the case it is double to avoid type incompatibilities
         output = output.float()
+        
+        if not return_as_tensor:
+            if not torch.all(torch.where(torch.logical_and(output >= 0., output <= 1.), 1., 0.)):
+                raise ValueError("Expected the output of a predicate to be in the range [0., 1.], but got some values "
+                                 "outside of this range. Check your predicate implementation!")
 
-        return LTNObject(output, output_vars)
+                        
+
+            return LTNObject(output, output_vars)
+
+        else:
+            return output
 
 
+
+
+
+        
 class Function(nn.Module):
     r"""
     Class representing LTN functions.
