@@ -10,6 +10,12 @@ import numpy as np
 import ltn
 import types
 
+import logging
+
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 class LTNObject:
     r"""
@@ -578,7 +584,7 @@ class Predicate(nn.Module):
     def __repr__(self):
         return "Predicate(model=" + str(self.model) + ")"
 
-    def forward(self, *inputs, return_as_tensor = False, **kwargs, ):
+    def forward(self, *inputs, return_as_tensor = False, as_ltn=False, **kwargs):
         """
         It computes the output of the predicate given some :ref:`LTN objects <noteltnobject>` in input.
 
@@ -609,22 +615,26 @@ class Predicate(nn.Module):
             raise TypeError("Expected parameter 'inputs' to be a tuple of LTNObject, but got " + str([type(i)
                                                                                                       for i in inputs]))
 
-        proc_objs, output_vars, output_shape = process_ltn_objects(inputs)
 
+        # logger.critical(f"inputs: {inputs[0].value.grad_fn}. as_ltn: {as_ltn}")
+        proc_objs, output_vars, output_shape = process_ltn_objects(inputs)
+        # logger.critical(f"proc_objs: {proc_objs[0].value.grad_fn}. as_ltn: {as_ltn}")
         # the management of the input is left to the model or the lambda function
         output = self.model(*[o.value for o in proc_objs], **kwargs)
-
+        # logger.critical(f"output: {output.grad_fn}. as_ltn: {as_ltn}")
+        
         # check if output of predicate contains only truth values, namely values in the range [0., 1.]
         output = torch.reshape(output, tuple(output_shape))
         # we assure the output is float in the case it is double to avoid type incompatibilities
         output = output.float()
-        
+
+                        
         if not return_as_tensor:
+
             if not torch.all(torch.where(torch.logical_and(output >= 0., output <= 1.), 1., 0.)):
                 raise ValueError("Expected the output of a predicate to be in the range [0., 1.], but got some values "
                                  "outside of this range. Check your predicate implementation!")
 
-                        
 
             return LTNObject(output, output_vars)
 
